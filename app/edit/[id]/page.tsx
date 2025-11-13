@@ -2,42 +2,48 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { postService } from '@/services/api';
-import { Post } from '@/types/post';
+import { movieService } from '@/services/api';
+import { Movie } from '@/types/movie';
 import Link from 'next/link';
 
-export default function EditPost() {
+export default function EditMovie() {
   const router = useRouter();
   const params = useParams();
   const id = params.id as string;
 
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [image, setImage] = useState<File | null>(null);
+  const [title, setTitle] = useState('');
+  const [genre, setGenre] = useState('');
+  const [rating, setRating] = useState<number | ''>('');
+  const [posterImage, setPosterImage] = useState<File | null>(null);
+  const [posterImageUrl, setPosterImageUrl] = useState('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
+  const [useUrl, setUseUrl] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadPost();
+    loadMovie();
   }, [id]);
 
-  const loadPost = async () => {
+  const loadMovie = async () => {
     try {
       setLoading(true);
       setError(null);
-      const post = await postService.getPostById(id);
-      setName(post.name);
-      setDescription(post.description);
-      if (post.imageUrl) {
-        setExistingImageUrl(post.imageUrl);
-        setImagePreview(post.imageUrl);
+      const movie = await movieService.getMovieById(id);
+      setTitle(movie.title);
+      setGenre(movie.genre || '');
+      setRating(movie.rating || '');
+      if (movie.posterImageUrl) {
+        setExistingImageUrl(movie.posterImageUrl);
+        setPosterImageUrl(movie.posterImageUrl);
+        setImagePreview(movie.posterImageUrl);
+        setUseUrl(true);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load post');
-      console.error('Error loading post:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load movie');
+      console.error('Error loading movie:', err);
     } finally {
       setLoading(false);
     }
@@ -46,7 +52,8 @@ export default function EditPost() {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setImage(file);
+      setPosterImage(file);
+      setPosterImageUrl('');
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result as string);
@@ -55,26 +62,43 @@ export default function EditPost() {
     }
   };
 
+  const handleUrlChange = (url: string) => {
+    setPosterImageUrl(url);
+    if (url) {
+      setPosterImage(null);
+      setImagePreview(url);
+    } else {
+      setImagePreview(existingImageUrl);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!name.trim() || !description.trim()) {
-      setError('Name and description are required');
+    if (!title.trim()) {
+      setError('Title is required');
+      return;
+    }
+
+    if (rating !== '' && (rating < 1 || rating > 5)) {
+      setError('Rating must be between 1 and 5');
       return;
     }
 
     try {
       setSaving(true);
       setError(null);
-      await postService.updatePost(id, {
-        name: name.trim(),
-        description: description.trim(),
-        image: image || undefined,
+      await movieService.updateMovie(id, {
+        title: title.trim(),
+        genre: genre.trim() || undefined,
+        rating: rating !== '' ? Number(rating) : undefined,
+        posterImage: posterImage || undefined,
+        posterImageUrl: useUrl && posterImageUrl ? posterImageUrl : undefined,
       });
       router.push('/');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update post');
-      console.error('Error updating post:', err);
+      setError(err instanceof Error ? err.message : 'Failed to update movie');
+      console.error('Error updating movie:', err);
     } finally {
       setSaving(false);
     }
@@ -85,7 +109,7 @@ export default function EditPost() {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-indigo-600 mb-4"></div>
-          <p className="text-xl font-semibold text-gray-700">Loading post...</p>
+          <p className="text-xl font-semibold text-gray-700">Loading movie...</p>
         </div>
       </div>
     );
@@ -103,12 +127,12 @@ export default function EditPost() {
             <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
-            Back to Posts
+            Back to Movies
           </Link>
           <h1 className="text-4xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-            Edit Post
+            Edit Movie
           </h1>
-          <p className="text-gray-600 mt-2">Update your post information</p>
+          <p className="text-gray-600 mt-2">Update movie information</p>
         </div>
 
         {/* Form Card */}
@@ -125,104 +149,180 @@ export default function EditPost() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Name Field */}
+            {/* Title Field */}
             <div>
-              <label htmlFor="name" className="block text-sm font-semibold text-gray-700 mb-2">
-                Post Name <span className="text-red-500">*</span>
+              <label htmlFor="title" className="block text-sm font-semibold text-gray-700 mb-2">
+                Title <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                id="title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
                 required
                 className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-gray-900 placeholder-gray-400"
-                placeholder="Enter a catchy title for your post"
+                placeholder="Enter movie title"
               />
             </div>
 
-            {/* Description Field */}
+            {/* Genre Field */}
             <div>
-              <label htmlFor="description" className="block text-sm font-semibold text-gray-700 mb-2">
-                Description <span className="text-red-500">*</span>
+              <label htmlFor="genre" className="block text-sm font-semibold text-gray-700 mb-2">
+                Genre <span className="text-gray-500 text-xs">(Optional)</span>
               </label>
-              <textarea
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                required
-                rows={6}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all resize-none text-gray-900 placeholder-gray-400"
-                placeholder="Write a detailed description about your post..."
+              <input
+                type="text"
+                id="genre"
+                value={genre}
+                onChange={(e) => setGenre(e.target.value)}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-gray-900 placeholder-gray-400"
+                placeholder="e.g., Action, Drama, Comedy"
               />
-              <p className="text-sm text-gray-500 mt-2">{description.length} characters</p>
             </div>
 
-            {/* Image Upload Field */}
+            {/* Rating Field */}
             <div>
-              <label htmlFor="image" className="block text-sm font-semibold text-gray-700 mb-2">
-                Image <span className="text-gray-500 text-xs">(Optional)</span>
+              <label htmlFor="rating" className="block text-sm font-semibold text-gray-700 mb-2">
+                Rating <span className="text-gray-500 text-xs">(Optional, 1-5)</span>
               </label>
-              <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-xl hover:border-indigo-400 transition-colors">
-                <div className="space-y-1 text-center w-full">
-                  {imagePreview ? (
-                    <div className="relative">
+              <input
+                type="number"
+                id="rating"
+                min="1"
+                max="5"
+                value={rating}
+                onChange={(e) => setRating(e.target.value === '' ? '' : Number(e.target.value))}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-gray-900 placeholder-gray-400"
+                placeholder="1-5"
+              />
+            </div>
+
+            {/* Poster Image Field */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Poster Image <span className="text-gray-500 text-xs">(Optional)</span>
+              </label>
+              
+              {/* Toggle between upload and URL */}
+              <div className="flex gap-4 mb-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUseUrl(false);
+                    if (!posterImage) {
+                      setPosterImageUrl(existingImageUrl || '');
+                      setImagePreview(existingImageUrl);
+                    }
+                  }}
+                  className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+                    !useUrl
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Upload File
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUseUrl(true);
+                    setPosterImage(null);
+                    if (!posterImageUrl && existingImageUrl) {
+                      setPosterImageUrl(existingImageUrl);
+                      setImagePreview(existingImageUrl);
+                    }
+                  }}
+                  className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+                    useUrl
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Use URL
+                </button>
+              </div>
+
+              {!useUrl ? (
+                <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-xl hover:border-indigo-400 transition-colors">
+                  <div className="space-y-1 text-center w-full">
+                    {imagePreview ? (
+                      <div className="relative">
+                        <img
+                          src={imagePreview}
+                          alt="Preview"
+                          className="mx-auto h-48 w-auto rounded-lg object-cover shadow-md"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPosterImage(null);
+                            setImagePreview(existingImageUrl);
+                          }}
+                          className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <svg
+                          className="mx-auto h-12 w-12 text-gray-400"
+                          stroke="currentColor"
+                          fill="none"
+                          viewBox="0 0 48 48"
+                          aria-hidden="true"
+                        >
+                          <path
+                            d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                            strokeWidth={2}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                        <div className="flex text-sm text-gray-600">
+                          <label
+                            htmlFor="posterImage"
+                            className="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500"
+                          >
+                            <span>Upload a file</span>
+                            <input
+                              id="posterImage"
+                              name="posterImage"
+                              type="file"
+                              accept="image/*"
+                              onChange={handleImageChange}
+                              className="sr-only"
+                            />
+                          </label>
+                          <p className="pl-1">or drag and drop</p>
+                        </div>
+                        <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <input
+                    type="url"
+                    value={posterImageUrl}
+                    onChange={(e) => handleUrlChange(e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-gray-900 placeholder-gray-400"
+                    placeholder="https://example.com/poster.jpg"
+                  />
+                  {imagePreview && (
+                    <div className="mt-4 relative">
                       <img
                         src={imagePreview}
                         alt="Preview"
                         className="mx-auto h-48 w-auto rounded-lg object-cover shadow-md"
                       />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setImage(null);
-                          setImagePreview(existingImageUrl);
-                        }}
-                        className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
                     </div>
-                  ) : (
-                    <>
-                      <svg
-                        className="mx-auto h-12 w-12 text-gray-400"
-                        stroke="currentColor"
-                        fill="none"
-                        viewBox="0 0 48 48"
-                        aria-hidden="true"
-                      >
-                        <path
-                          d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                          strokeWidth={2}
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                      <div className="flex text-sm text-gray-600">
-                        <label
-                          htmlFor="image"
-                          className="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500"
-                        >
-                          <span>Upload a file</span>
-                          <input
-                            id="image"
-                            name="image"
-                            type="file"
-                            accept="image/*"
-                            onChange={handleImageChange}
-                            className="sr-only"
-                          />
-                        </label>
-                        <p className="pl-1">or drag and drop</p>
-                      </div>
-                      <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
-                    </>
                   )}
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Action Buttons */}

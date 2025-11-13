@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Post, ApiResponse, CreatePostRequest, UpdatePostRequest } from '@/types/post';
+import { Movie, ApiResponse, CreateMovieRequest, UpdateMovieRequest } from '@/types/movie';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5291/api';
 
@@ -10,85 +10,87 @@ const apiClient = axios.create({
   },
 });
 
-export const postService = {
-  // Get all posts
-  getAllPosts: async (): Promise<Post[]> => {
-    const response = await apiClient.get<ApiResponse<Post[]>>('/post');
+export const movieService = {
+  // Get all movies with optional search, filter, and sort
+  getAllMovies: async (params?: {
+    search?: string;
+    genre?: string;
+    sortBy?: string;
+    ascending?: boolean;
+  }): Promise<Movie[]> => {
+    const response = await apiClient.get<ApiResponse<Movie[]>>('/movie', { params });
     return response.data.data || [];
   },
 
-  // Get post by ID
-  getPostById: async (id: string): Promise<Post> => {
-    const response = await apiClient.get<ApiResponse<Post>>(`/post/${id}`);
+  // Get movie by ID
+  getMovieById: async (id: string): Promise<Movie> => {
+    const response = await apiClient.get<ApiResponse<Movie>>(`/movie/${id}`);
     if (!response.data.data) {
-      throw new Error('Post not found');
+      throw new Error('Movie not found');
     }
     return response.data.data;
   },
 
-  // Create post
-  createPost: async (data: CreatePostRequest): Promise<Post> => {
+  // Create movie
+  createMovie: async (data: CreateMovieRequest): Promise<Movie> => {
     const formData = new FormData();
-    formData.append('name', data.name);
-    formData.append('description', data.description);
-    if (data.image) {
-      formData.append('image', data.image);
+    formData.append('title', data.title);
+    if (data.genre) {
+      formData.append('genre', data.genre);
+    }
+    if (data.rating !== undefined && data.rating !== null) {
+      formData.append('rating', data.rating.toString());
+    }
+    if (data.posterImage) {
+      formData.append('posterImage', data.posterImage);
+    }
+    if (data.posterImageUrl) {
+      formData.append('posterImageUrl', data.posterImageUrl);
     }
 
-    const response = await apiClient.post<ApiResponse<Post>>('/post', formData, {
+    const response = await apiClient.post<ApiResponse<Movie>>('/movie', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
     });
 
     if (!response.data.data) {
-      throw new Error(response.data.message || 'Failed to create post');
+      throw new Error(response.data.message || 'Failed to create movie');
     }
     return response.data.data;
   },
 
-  // Update post
-  updatePost: async (id: string, data: UpdatePostRequest): Promise<Post> => {
+  // Update movie
+  updateMovie: async (id: string, data: UpdateMovieRequest): Promise<Movie> => {
     const formData = new FormData();
-    formData.append('name', data.name);
-    formData.append('description', data.description);
-    if (data.image) {
-      formData.append('image', data.image);
+    formData.append('title', data.title);
+    if (data.genre) {
+      formData.append('genre', data.genre);
+    }
+    if (data.rating !== undefined && data.rating !== null) {
+      formData.append('rating', data.rating.toString());
+    }
+    if (data.posterImage) {
+      formData.append('posterImage', data.posterImage);
+    }
+    if (data.posterImageUrl) {
+      formData.append('posterImageUrl', data.posterImageUrl);
     }
 
-    const response = await apiClient.put<ApiResponse<Post>>(`/post/${id}`, formData, {
+    const response = await apiClient.put<ApiResponse<Movie>>(`/movie/${id}`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
     });
 
     if (!response.data.data) {
-      throw new Error(response.data.message || 'Failed to update post');
+      throw new Error(response.data.message || 'Failed to update movie');
     }
     return response.data.data;
   },
 
-  // Delete post
-  deletePost: async (id: string): Promise<void> => {
-    await apiClient.delete<ApiResponse<null>>(`/post/${id}`);
-  },
-
-  // Search posts by name
-  searchPosts: async (name: string): Promise<Post[]> => {
-    const response = await apiClient.get<ApiResponse<Post[]>>('/post/search', {
-      params: { name },
-    });
-    return response.data.data || [];
-  },
-
-  // Sort posts by name
-  sortPosts: async (ascending: boolean = true): Promise<Post[]> => {
-    const response = await apiClient.get<ApiResponse<Post[]>>('/post/sort', {
-      params: { ascending },
-    });
-    return response.data.data || [];
+  // Delete movie
+  deleteMovie: async (id: string): Promise<void> => {
+    await apiClient.delete<ApiResponse<null>>(`/movie/${id}`);
   },
 };
-
-
-
