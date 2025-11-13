@@ -364,7 +364,7 @@ export default function Home() {
               Delete Movie
             </h3>
             <p className="text-gray-600 text-center mb-6">
-              Are you sure you want to delete <span className="font-semibold text-gray-900">"{movieToDelete?.title}"</span>? This action cannot be undone.
+              Are you sure you want to delete <span className="font-semibold text-gray-900">{movieToDelete?.title}</span>? This action cannot be undone.
             </p>
             <div className="flex gap-4">
               <button
